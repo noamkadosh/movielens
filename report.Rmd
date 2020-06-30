@@ -111,7 +111,8 @@ edx %>% summarize(num_users = n_distinct(userId), num_movies = n_distinct(movieI
 
 Ratings are on a scale of 0.5 to 5 with increments of 0.5. Users tend to rate movies relatively high. The most common rating is a rating of 4, followed by a rating of 3. 0.5 is the least common rating. We can infer from the chart that users tend to use whole numbers to rate movies.
 
-```{r ratings-distribution, echo = FALSE}
+```{r ratings-distribution, echo = TRUE}
+# Ratings distribution
 edx %>%
   ggplot(aes(rating)) +
   geom_histogram(binwidth = 0.25, color = "black", fill = "#2e4057") +
@@ -120,6 +121,51 @@ edx %>%
   ylab("Count") +
   ggtitle("Rating distribution")
 ```
+
+Users watch some movies more than others, for example, blockbuster films. Therefore they are being rated a lot more and usually higher than others. On the other hand, users rate some movies very few times, and some movies only once. These facts can result in untrustworthy estimations, especially for movies that are rated a few times. We will introduce a movie bias penalty term. This term controls the function used for prediction, which is very fluctuating, such that the coefficients don't take extreme values. Nonetheless, forecasts for movies rated only once will be challenging.
+
+```{r movie-bias, echo = TRUE}
+# Number of ratings per Movie - Movie bias
+edx %>%
+  count(movieId) %>%
+  ggplot(aes(n)) +
+  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
+  xlab("Ratings Count") +
+  scale_x_log10() +
+  ylab("Movie Count") +
+  ggtitle("Number of Ratings per Movie")
+```
+
+Some users rate more movies than others, as seen in the first chart. The majority of users rate between 30 and 100 films. From the second chart, we can deduce that some users rate movies higher than others and some lower than others, possibly because some people are more positive and others negative. Another reason for that is that some users tend to rate movies they liked, thus rating on average higher, and some tend to rate movies they don't like, thus rating on average lower. We will introduce a user penalty term since some users don't rate a lot of movies.
+
+```{r user-bias, echo = TRUE}
+# Number of ratings given by users
+edx %>%
+  count(userId) %>%
+  ggplot(aes(n)) +
+  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
+  xlab("Ratings Count") +
+  scale_x_log10() +
+  ylab("User Count") +
+  ggtitle("Number of Ratings given by Users")
+```
+
+```{r mean-rating-by-user, echo = TRUE}
+# Mean ratings given by user
+edx %>%
+  group_by(userId) %>%
+  filter(n() >= 30) %>%
+  summarize(mean_rating = mean(rating)) %>%
+  ggplot(mean_rating) +
+  geom_histogram(bins = 35,  color = "black", fill = "#2e4057") +
+  xlab("Mean Rating") +
+  ylab("Number of Users") +
+  ggtitle("Mean Ratings Given By Users")
+```
+
+## Modeling
+
+
 
 
 

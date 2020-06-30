@@ -111,6 +111,17 @@ edx %>%
   ylab("User Count") +
   ggtitle("Number of Ratings given by Users")
 
+# Mean ratings given by user
+edx %>%
+  group_by(userId) %>%
+  filter(n() >= 30) %>%
+  summarize(mean_rating = mean(rating)) %>%
+  ggplot(mean_rating) +
+  geom_histogram(bins = 35,  color = "black", fill = "#2e4057") +
+  xlab("Mean Rating") +
+  ylab("Number of Users") +
+  ggtitle("Mean Ratings Given By Users")
+
 # Movie effect penalty term b_i
 # Subtract the mean from the rating
 # Plot the penalty term distribution
