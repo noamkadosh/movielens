@@ -22,6 +22,7 @@ I will train four different machine learning algorithms using the dataset. Start
 The algorithms will use the Root Mean Squared Error (RMSE) to evaluate performance. It is a way to measure the difference between the value observed to the value predicted, and the goal is to get it as low as possible.
 The RMSE formula: 
 $$ RMSE = \sqrt{\frac{1}{N}\displaystyle\sum_{u,i} (\hat{y}_{u,i}-y_{u,i})^{2}} $$
+N is the sample size. The term inside the paranthesis is the difference, or distance, by rating between the predicted rating to the observed rating, squared.
 The target RMSE for this project is lower than 0.86490. 
 
 
@@ -122,10 +123,10 @@ edx %>%
   ggtitle("Rating distribution")
 ```
 
-Users watch some movies more than others, for example, blockbuster films. Therefore they are being rated a lot more and usually higher than others. On the other hand, users rate some movies very few times, and some movies only once. These facts can result in untrustworthy estimations, especially for movies that are rated a few times. We will introduce a movie bias penalty term. This term controls the function used for prediction, which is very fluctuating, such that the coefficients don't take extreme values. Nonetheless, forecasts for movies rated only once will be challenging.
+Users watch some movies more than others, for example, blockbuster films. Therefore they are being rated a lot more and usually higher than others. On the other hand, users rate some movies very few times, and some movies only once. These facts can result in untrustworthy estimations, especially for movies that are rated a few times. We will later introduce a movie bias penalty term. This term controls the function used for prediction, which is very fluctuating, such that the coefficients don't take extreme values. Nonetheless, forecasts for movies rated only once will be challenging.
 
-```{r movie-bias, echo = TRUE}
-# Number of ratings per Movie - Movie bias
+```{r rating-per-movie, echo = TRUE}
+# Number of ratings per Movie
 edx %>%
   count(movieId) %>%
   ggplot(aes(n)) +
@@ -136,9 +137,9 @@ edx %>%
   ggtitle("Number of Ratings per Movie")
 ```
 
-Some users rate more movies than others, as seen in the first chart. The majority of users rate between 30 and 100 films. From the second chart, we can deduce that some users rate movies higher than others and some lower than others, possibly because some people are more positive and others negative. Another reason for that is that some users tend to rate movies they liked, thus rating on average higher, and some tend to rate movies they don't like, thus rating on average lower. We will introduce a user penalty term since some users don't rate a lot of movies.
+Some users rate more movies than others, as seen in the first chart. The majority of users rate between 30 and 100 films. From the second chart, we can deduce that some users rate movies higher than others and some lower than others, possibly because some people are more positive and others negative. Another reason for that is that some users tend to rate movies they liked, thus rating on average higher, and some tend to rate movies they don't like, thus rating on average lower. We will later introduce a user penalty term since some users don't rate a lot of movies.
 
-```{r user-bias, echo = TRUE}
+```{r ratings-given-by-users, echo = TRUE}
 # Number of ratings given by users
 edx %>%
   count(userId) %>%
@@ -165,6 +166,68 @@ edx %>%
 
 ## Modeling
 
+### The Average Movie Rating Naive Model
+
+This model guesses the mean rating over all movies for every prediction. We start by computing the mean $\mu$ rating which is expected to be between 3 and 4. Than we predict $\mu$ for every movie. This model predicts the same rating for all movide with all differences explaind by some random variation.
+$$ Y_{u,i} = \mu + \epsilon_{u, i} $$
+With $$\epsilon_{u, i}$$ some small error.
+
+```{r naive-model, echo = TRUE}
+# Compute the mean
+mu <- mean(edx$rating)
+mu
+# Testing results
+mu_rmse <- RMSE(validation$rating, mu)
+mu_rmse
+```
+
+We now initialize the results table to store all our RMSEs and insert the first RMSE value.
+
+```{r initialize-results-table, echo = TRUE}
+# Initializing a RMSE table to save the results and saving first model's data
+rmse_results <- tibble(method = "Average movie rating model", RMSE = mu_rmse)
+rmse_results %>% knitr::kable()
+```
+
+This model will be used as the base model to improve. We will use insights from the data analysis section.
+
+### The Movie effect Model
+
+As noted earlier, some movies are generaly rated higher than others. These higher rated movies are mostly linked to more popular movies such as blockbusters. We now introduce a movie penalty term $$b_{i}$$, which is the estimated deviation of each movies' mean rating from the total mean rating of all movies. We add $$b_{i}$$ to the previous model. :
+$$ Y_{u, i} = \mu + b_{i} + \epsilon_{u, i} $$
+
+```{r movie_penalty_term, echo = TRUE}
+# Movie effect penalty term b_i
+# Subtract the mean from the rating
+# Plot the penalty term distribution
+movie_penalties <- edx %>%
+  group_by(movieId) %>%
+  summarize(b_i = mean(rating - mu))
+movie_penalties %>%
+  ggplot(aes(b_i)) +
+  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
+  ylab("Number of Movies") +
+  ggtitle("Movie Penalty term distribution")
+```
+
+We can see that the histogram is left skewed, implying more movies have negative effects.
+
+```{r movie_effect_mode;, echo = TRUE}
+movie_effect_predictions <- validation %>%
+  left_join(movie_penalties, by = "movieId") %>%
+  mutate(prediction = mu + b_i)
+movie_effect_rmse <- RMSE(validation$rating, movie_effect_predictions$prediction)
+movie_effect_rmse
+```
+
+We can see that considering the movie penalty term improves our RMSE result.
+
+```{r adding_movie_effect_model, echo = TRUE}
+# Saving reslts to table
+rmse_results <- rmse_results %>%
+  add_row(method = "Movie Effect Model", RMSE = movie_effect_rmse)
+rmse_results %>% knitr::kable()
+```
 
 
 

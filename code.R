@@ -91,7 +91,7 @@ edx %>%
   ylab("Count") +
   ggtitle("Rating distribution")
 
-# Number of ratings per Movie - Movie bias
+# Number of ratings per Movie
 edx %>%
   count(movieId) %>%
   ggplot(aes(n)) +
@@ -122,31 +122,6 @@ edx %>%
   ylab("Number of Users") +
   ggtitle("Mean Ratings Given By Users")
 
-# Movie effect penalty term b_i
-# Subtract the mean from the rating
-# Plot the penalty term distribution
-movie_penalties <- edx %>%
-  group_by(movieId) %>%
-  summarize(b_i = mean(rating - mu))
-movie_penalties %>%
-  ggplot(aes(b_i)) +
-  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
-  ylab("Number of Movies") +
-  ggtitle("Movie Penalty term distribution")
-
-# User effect penalty term b_u
-# Subtract the movie penalty term and mean from the rating
-# Plot the penalty term distribution
-user_penalties <- edx %>%
-  left_join(movie_penalties, by = "movieId") %>%
-  group_by(userId) %>%
-  summarize(b_u = mean(rating - mu - b_i))
-user_penalties %>%
-  ggplot(aes(b_u)) +
-  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
-  ylab("Number of Users") +
-  ggtitle("User Penalty term distribution")
-
 ### Modeling Approcah ###
 
 ## Simplest model - using only the mean ##
@@ -159,9 +134,20 @@ mu_rmse
 
 # Initializing a RMSE table to save the results and saving first model's data
 rmse_results <- tibble(method = "Average movie rating model", RMSE = mu_rmse)
-rmse_results
+rmse_results %>% knitr::kable()
 
 ## Movie Effect Model ##
+# Movie effect penalty term b_i
+# Subtract the mean from the rating
+# Plot the penalty term distribution
+movie_penalties <- edx %>%
+  group_by(movieId) %>%
+  summarize(b_i = mean(rating - mu))
+movie_penalties %>%
+  ggplot(aes(b_i)) +
+  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
+  ylab("Number of Movies") +
+  ggtitle("Movie Penalty term distribution")
 # A model using the movie effect penalty term b_i
 movie_effect_predictions <- validation %>%
   left_join(movie_penalties, by = "movieId") %>%
@@ -170,9 +156,21 @@ movie_effect_rmse <- RMSE(validation$rating, movie_effect_predictions$prediction
 # Saving reslts to table
 rmse_results <- rmse_results %>%
   add_row(method = "Movie Effect Model", RMSE = movie_effect_rmse)
-rmse_results
+rmse_results %>% knitr::kable()
 
 ## Movie & User Effect Model ##
+# User effect penalty term b_u
+# Subtract the movie penalty term and mean from the rating
+# Plot the penalty term distribution
+user_penalties <- edx %>%
+  left_join(movie_penalties, by = "movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(rating - mu - b_i))
+user_penalties %>%
+  ggplot(aes(b_u)) +
+  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
+  ylab("Number of Users") +
+  ggtitle("User Penalty term distribution")
 # A model using the movie effect penalty term  b_i and the user effect penalty term b_u
 user_effect_predictions <- validation %>%
   left_join(movie_penalties, by = "movieId") %>%
@@ -182,7 +180,7 @@ user_effect_rmse <- RMSE(validation$rating, user_effect_predictions$prediction)
 # Saving results to table
 rmse_results <- rmse_results %>%
   add_row(method = "Movie & User Effect Model", RMSE = user_effect_rmse)
-rmse_results
+rmse_results %>% knitr::kable()
 
 ## Regularized Movie & User Effect Model ##
 # Using cross-validation to tune the tuning parameter lambda
@@ -219,10 +217,10 @@ lambda
 # Saving results to table
 rmse_results <- rmse_results %>%
   add_row(method = "Regularized Movie & User Effect Model", RMSE = min(rmses))
-rmse_results
+rmse_results %>% knitr::kable()
 
 ### Results ###
-rmse_results
+rmse_results %>% knitr::kable()
 
 ### Appendix ###
 print("OS:")
