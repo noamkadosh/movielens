@@ -25,19 +25,12 @@ if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.
 # https://grouplens.org/datasets/movielens/10m/
 # http://files.grouplens.org/datasets/movielens/ml-10m.zip
 
-# dl <- tempfile()
-# download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
-# ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
-#                  col.names = c("userId", "movieId", "rating", "timestamp"))
-# 
-# movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
-
-dl <- "data/ml-10m.zip"
-
-ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat", exdir = "data"))),
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
                  col.names = c("userId", "movieId", "rating", "timestamp"))
 
-movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat", exdir = "data")), "\\::", 3)
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
 colnames(movies) <- c("movieId", "title", "genres")
 movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
                                            title = as.character(title),
@@ -116,7 +109,7 @@ edx %>%
   group_by(userId) %>%
   filter(n() >= 30) %>%
   summarize(mean_rating = mean(rating)) %>%
-  ggplot(mean_rating) +
+  ggplot(aes(mean_rating)) +
   geom_histogram(bins = 35,  color = "black", fill = "#2e4057") +
   xlab("Mean Rating") +
   ylab("Number of Users") +
@@ -153,6 +146,7 @@ movie_effect_predictions <- validation %>%
   left_join(movie_penalties, by = "movieId") %>%
   mutate(prediction = mu + b_i)
 movie_effect_rmse <- RMSE(validation$rating, movie_effect_predictions$prediction)
+movie_effect_rmse
 # Saving reslts to table
 rmse_results <- rmse_results %>%
   add_row(method = "Movie Effect Model", RMSE = movie_effect_rmse)
@@ -177,6 +171,7 @@ user_effect_predictions <- validation %>%
   left_join(user_penalties, by = "userId") %>% 
   mutate(prediction = mu + b_i + b_u)
 user_effect_rmse <- RMSE(validation$rating, user_effect_predictions$prediction)
+user_effect_rmse
 # Saving results to table
 rmse_results <- rmse_results %>%
   add_row(method = "Movie & User Effect Model", RMSE = user_effect_rmse)

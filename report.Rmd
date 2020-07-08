@@ -191,7 +191,7 @@ rmse_results %>% knitr::kable()
 
 This model will be used as the base model to improve. We will use insights from the data analysis section.
 
-### The Movie effect Model
+### The Movie Effect Model
 
 As noted earlier, some movies are generaly rated higher than others. These higher rated movies are mostly linked to more popular movies such as blockbusters. We now introduce a movie penalty term $$b_{i}$$, which is the estimated deviation of each movies' mean rating from the total mean rating of all movies. We add $$b_{i}$$ to the previous model. :
 $$ Y_{u, i} = \mu + b_{i} + \epsilon_{u, i} $$
@@ -210,9 +210,9 @@ movie_penalties %>%
   ggtitle("Movie Penalty term distribution")
 ```
 
-We can see that the histogram is left skewed, implying more movies have negative effects.
+The histogram is left skewed, implying more movies have negative effects.
 
-```{r movie_effect_mode;, echo = TRUE}
+```{r movie_effect_model;, echo = TRUE}
 movie_effect_predictions <- validation %>%
   left_join(movie_penalties, by = "movieId") %>%
   mutate(prediction = mu + b_i)
@@ -220,7 +220,7 @@ movie_effect_rmse <- RMSE(validation$rating, movie_effect_predictions$prediction
 movie_effect_rmse
 ```
 
-We can see that considering the movie penalty term improves our RMSE result.
+Considering the movie penalty term improves our RMSE result.
 
 ```{r adding_movie_effect_model, echo = TRUE}
 # Saving reslts to table
@@ -229,9 +229,128 @@ rmse_results <- rmse_results %>%
 rmse_results %>% knitr::kable()
 ```
 
+There is an improvement of about 11% in the RMSE using the movie effect model compared to the naive model. 
 
+## The Movie and User Effect model
 
+Some users are positive. Therefore they tend to rate movies higher or rate only movies they like, which causes them to rate movies high all the time. Some users are pessimistic. Therefore they tend to evaluate films low or rate only movies they don't like, which causes them to rate movies low all the time. We now introduce a user penalty term $$b_u$$, which is the estimated deviation of each users' mean rating from the total mean rating of all users. We add $$b_u$$ to the previous model:
+$$ Y_{u, i} = \mu + b_{i} + b_{u} + \epsilon_{u, i} $$
 
+```{r user_penalty_term, echo = TRUE}
+# User effect penalty term b_u
+# Subtract the movie penalty term and mean from the rating
+# Plot the penalty term distribution
+user_penalties <- edx %>%
+  left_join(movie_penalties, by = "movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(rating - mu - b_i))
+user_penalties %>%
+  ggplot(aes(b_u)) +
+  geom_histogram(bins = 35, color = "black", fill = "#2e4057") +
+  ylab("Number of Users") +
+  ggtitle("User Penalty term distribution")
+```
+
+We can see the histogram implies the user penalty term distributes normally.
+
+```{r user_effect_model, echo = TRUE}
+# A model using the movie effect penalty term  b_i and the user effect penalty term b_u
+user_effect_predictions <- validation %>%
+  left_join(movie_penalties, by = "movieId") %>%
+  left_join(user_penalties, by = "userId") %>% 
+  mutate(prediction = mu + b_i + b_u)
+user_effect_rmse <- RMSE(validation$rating, user_effect_predictions$prediction)
+user_effect_rmse
+```
+
+Considering the user effect improves our model.
+
+```{r adding_user_effect_model, echo = TRUE}
+# Saving results to table
+rmse_results <- rmse_results %>%
+  add_row(method = "Movie & User Effect Model", RMSE = user_effect_rmse)
+rmse_results %>% knitr::kable()
+```
+
+There is an improvement of about 8% in the RSME using the user effect model compared to the movie effect model. 
+
+## Regularized Movie & User Effect Model
+
+A movie that was rated only once with a five-star rating has an average of five stars. Therefore it will be one of the best movies. It is most likely an obscure movie since it was rated only once. When very few users rate a movie, the uncertainty level rises. To handle these situations, we introduce the concept of regularization to our model. It allows the model to penalize extreme predictions, low or high, that derive from small sample size and reduces the possibility of overfitting. Lambda is a tuning parameter of regularization; it shrinks $$b_i$$ and $$b_u$$ in cases of small sample size. We want to find the correct value of lambda, the one that will minimize the RMSE.
+
+```{r find-lambda, echo = TRUE}
+# Using cross-validation to tune the tuning parameter lambda
+lambdas <- seq(0, 10, 0.25)
+
+# For each lambda, find movie penalty term b_i and 
+# user effect penalty term b_u, followed by rating prediction & testing
+rmses <- sapply(lambdas, function(lambda){
+  mu <- mean(edx$rating)
+  b_i <- edx %>%
+    group_by(movieId) %>%
+    summarize(b_i = sum(rating - mu) / (n() + lambda))
+  b_u <- edx %>%
+    left_join(b_i, by = "movieId") %>%
+    group_by(userId) %>%
+    summarize(b_u = sum(rating - b_i - mu) / (n() + lambda))
+  predictions <- validation %>%
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    mutate(prediction = mu + b_i + b_u) %>%
+    .$prediction
+  
+  RMSE(validation$rating, predictions)
+})
+```
+
+```{r plot_lambda, echo = TRUE}
+# Plot the lambdas against the RMSEs to visualize what is the best lambda
+tibble(lambda = lambdas, rmse = rmses) %>%
+  ggplot(aes(lambdas, rmses)) + 
+  geom_point()
+```
+
+According to the chart the lambda that will acheive our goal is:
+
+```{r lambda, echo = TRUE}
+lambda <- lambdas[which.min(rmses)]
+lambda
+```
+
+The corresponding RMSE:
+
+```{r lambda_rmse, echo = TRUE}
+min(rmses)
+```
+
+```{r adding_regularized_model, echo = TRUE}
+# Saving results to table
+rmse_results <- rmse_results %>%
+  add_row(method = "Regularized Movie & User Effect Model", RMSE = min(rmses))
+rmse_results %>% knitr::kable()
+```
+
+There is very little improvement compared to the user effect model.
+
+# Results
+
+```{r results, echo = FALSE}
+rmse_results %>% knitr::kable()
+```
+
+The best result was using the regularized movie & user effect model with an RMSE of 0.86482.
+
+# Discussion
+
+The final model is the one that uses regularized movie and user effects, using the following model:
+$$ Y_{u, i} = \mu + b_{i} + b_{u} + \epsilon_{u, i} $$
+This model handles very well the different biases derived from famous movies with big marketing crews behind them or those that are not very well known and biases derived from different kinds of users, the optimistic and pessimistic. It also handles very well the fact that some movies are rated only once. Therefore they can be at the top or bottom with high levels of uncertainty and the fact that some users rated only one movie also making their mean rating hard to predict with a high degree of uncertainty.
+
+# Conclusion
+
+We have built a machine learning algorithm to recommend streaming service's users new movies. When first introducing the movie bias and then the users' bias, we had significant improvements both of the times. The introduction of the movie's bias improved our predictions by 11%, and the introduction of the users' bias further improved our predictions by another 8%. The regularization method, although it showed an improvement, had minimal impact on the final RMSE but still was the best performing model with an RMSE of 0.86482. The dataset can be further researched by exploring more biases such as year and genre. Other machine learning algorithms can also be used to investigate this dataset.
+
+\pagebreak
 
 # Appendix
 
