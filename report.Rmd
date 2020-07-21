@@ -31,9 +31,9 @@ The data used for the project is the 10M version of MovieLens dataset, collected
 The following code is included in the HarvardX capstone project course. This code splits the data to a training set and a validation set. The training set, edx in the code, is used to train the algorithms. The validation set, validation in the code, is used to test the algorithms on new never seen data ("the real world").
 
 ```{r data-preperation, echo = TRUE, message = FALSE, warning = FALSE, eval = TRUE}
-##################################
-# Create edx set, validation set #
-##################################
+##########################################################
+# Create edx set, validation set (final hold-out test set)
+##########################################################
 
 # Note: this process could take a couple of minutes
 
@@ -45,17 +45,23 @@ if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.
 # https://grouplens.org/datasets/movielens/10m/
 # http://files.grouplens.org/datasets/movielens/ml-10m.zip
 
- dl <- tempfile()
- download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
- ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
-                  col.names = c("userId", "movieId", "rating", "timestamp"))
- 
- movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
 
+ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
+                 col.names = c("userId", "movieId", "rating", "timestamp"))
+
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
 colnames(movies) <- c("movieId", "title", "genres")
+
+# if using R 3.6 or earlier
 movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
-                                           title = as.character(title),
-                                           genres = as.character(genres))
+                                            title = as.character(title),
+                                            genres = as.character(genres))
+# if using R 4.0 or later
+movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(movieId),
+                                            title = as.character(title),
+                                            genres = as.character(genres))
 
 movielens <- left_join(ratings, movies, by = "movieId")
 
@@ -68,8 +74,8 @@ temp <- movielens[test_index,]
 
 # Make sure userId and movieId in validation set are also in edx set
 validation <- temp %>% 
-  semi_join(edx, by = "movieId") %>%
-  semi_join(edx, by = "userId")
+      semi_join(edx, by = "movieId") %>%
+      semi_join(edx, by = "userId")
 
 # Add rows removed from validation set back into edx set
 removed <- anti_join(temp, validation)
@@ -157,7 +163,7 @@ edx %>%
   group_by(userId) %>%
   filter(n() >= 30) %>%
   summarize(mean_rating = mean(rating)) %>%
-  ggplot(mean_rating) +
+  ggplot(aes(mean_rating)) +
   geom_histogram(bins = 35,  color = "black", fill = "#2e4057") +
   xlab("Mean Rating") +
   ylab("Number of Users") +
